@@ -39,46 +39,59 @@ fuente_normal = pygame.font.SysFont('Arial', 30)
 # Define una fuente más grande para mensajes importantes (victoria, derrota).
 fuente_grande = pygame.font.SysFont('Arial', 50)
 
+# 1.8. Configuración de juego (HUD, dificultad)
+# Vidas, puntaje y niveles
+VIDAS_INICIALES = 3
+PUNTAJE_POR_SEGUNDO = 5
+PUNTAJE_POR_MOUSE = 20
+PUNTAJE_POR_RESPUESTA_CORRECTA = 100
+PUNTAJE_POR_NIVEL = 500
+
+# Rango de velocidades de obstáculos (se escala con el nivel)
+VELOCIDAD_MIN_INICIAL = 2
+VELOCIDAD_MAX_INICIAL = 6
+
+# Variables globales que usan los obstáculos al (re)spawnear
+velocidad_min = VELOCIDAD_MIN_INICIAL
+velocidad_max = VELOCIDAD_MAX_INICIAL
+
 # ====================================================================================================
 # SECCIÓN 2: CARGA DE IMÁGENES Y RECURSOS
 # ====================================================================================================
 
 # Las imágenes deben estar en la misma carpeta que el script o en una subcarpeta especificada.
-try:
-    # 2.1. Carga y escala las imágenes de fondo para los diferentes escenarios
-    # .convert() optimiza la imagen para la pantalla del juego.
-    imagen_fondo1 = pygame.image.load('fondo1.png').convert()
-    imagen_fondo1 = pygame.transform.scale(imagen_fondo1, (ANCHO_PANTALLA, ALTO_PANTALLA))
+def cargar_imagen_segura(path, size=None, use_alpha=True, color_placeholder=AZUL_CIELO):
+    try:
+        imagen = pygame.image.load(path)
+        imagen = imagen.convert_alpha() if use_alpha else imagen.convert()
+        if size is not None:
+            imagen = pygame.transform.scale(imagen, size)
+        return imagen
+    except (pygame.error, FileNotFoundError):
+        # Placeholder sólido si no existe la imagen
+        superficie = pygame.Surface(size if size else (50, 50))
+        superficie.fill(color_placeholder)
+        return superficie
 
-    imagen_fondo2 = pygame.image.load('fondo2.png').convert()
-    imagen_fondo2 = pygame.transform.scale(imagen_fondo2, (ANCHO_PANTALLA, ALTO_PANTALLA))
+# 2.1. Carga y escala las imágenes de fondo para los diferentes escenarios
+imagen_fondo1 = cargar_imagen_segura('fondo1.png', (ANCHO_PANTALLA, ALTO_PANTALLA), use_alpha=False)
+imagen_fondo2 = cargar_imagen_segura('fondo2.png', (ANCHO_PANTALLA, ALTO_PANTALLA), use_alpha=False)
+imagen_fondo3 = cargar_imagen_segura('fondo3.png', (ANCHO_PANTALLA, ALTO_PANTALLA), use_alpha=False)
 
-    imagen_fondo3 = pygame.image.load('fondo3.png').convert()
-    imagen_fondo3 = pygame.transform.scale(imagen_fondo3, (ANCHO_PANTALLA, ALTO_PANTALLA))
+# Almacena todos los fondos en una lista para acceder a ellos fácilmente.
+fondos_escenario = [imagen_fondo1, imagen_fondo2, imagen_fondo3]
 
-    # Almacena todos los fondos en una lista para acceder a ellos fácilmente.
-    fondos_escenario = [imagen_fondo1, imagen_fondo2, imagen_fondo3]
+# 2.2. Carga y escala la imagen del jugador
+imagen_jugador = cargar_imagen_segura('rob.png', (130, 130), use_alpha=True)
 
-    # 2.2. Carga y escala la imagen del jugador
-    # .convert_alpha() se usa para imágenes con transparencia (como PNGs).
-    imagen_jugador = pygame.image.load('rob.png').convert_alpha()
-    imagen_jugador = pygame.transform.scale(imagen_jugador, (130,130))
+# 2.3. Carga y escala las imágenes de los diferentes tipos de obstáculos
+imagen_mouse = cargar_imagen_segura('mouse.png', (50, 50), use_alpha=True)
+imagen_teclado = cargar_imagen_segura('teclado.png', (50, 50), use_alpha=True)
+imagen_monitor = cargar_imagen_segura('monitor.png', (50, 50), use_alpha=True)
+imagen_usb = cargar_imagen_segura('usb.png', (50, 50), use_alpha=True)
 
-    # 2.3. Carga y escala las imágenes de los diferentes tipos de obstáculos
-    imagen_mouse = pygame.image.load('mouse.png').convert_alpha()
-    imagen_teclado = pygame.image.load('teclado.png').convert_alpha()
-    imagen_monitor = pygame.image.load('monitor.png').convert_alpha()
-    imagen_usb = pygame.image.load('usb.png').convert_alpha()
-
-    # 2.4. Carga y escala la imagen de la meta
-    imagen_meta = pygame.image.load('meta.png').convert_alpha()
-    imagen_meta = pygame.transform.scale(imagen_meta, (100, 100))
-
-except pygame.error as e:
-    # Captura cualquier error si una imagen no se encuentra o no se puede cargar.
-    print(f"Error al cargar una imagen: {e}")
-    pygame.quit()  # Cierra Pygame.
-    sys.exit()  # Sale del programa.
+# 2.4. Carga y escala la imagen de la meta
+imagen_meta = cargar_imagen_segura('meta.png', (100, 100), use_alpha=True)
 
 
 # ====================================================================================================
@@ -156,7 +169,7 @@ class Obstaculo(pygame.sprite.Sprite):
         # 3.2.2. Posición inicial aleatoria en la parte superior fuera de la pantalla.
         self.rect.x = random.randrange(ANCHO_PANTALLA - self.rect.width)  # Posición X aleatoria.
         self.rect.y = random.randrange(-100, -40)  # Posición Y inicial por encima de la pantalla.
-        self.velocidad = random.randrange(1, 8)  # Velocidad de caída aleatoria.
+        self.velocidad = random.randrange(velocidad_min, velocidad_max + 1)  # Velocidad de caída según dificultad.
 
     def update(self):
         """
@@ -170,7 +183,7 @@ class Obstaculo(pygame.sprite.Sprite):
             self.rect.x = random.randrange(
                 ANCHO_PANTALLA - self.rect.width)  # ...lo mueve a una nueva posición X aleatoria.
             self.rect.y = random.randrange(-100, -40)  # ...y lo coloca de nuevo por encima de la pantalla.
-            self.velocidad = random.randrange(1, 8)  # ...y le asigna una nueva velocidad aleatoria.
+            self.velocidad = random.randrange(velocidad_min, velocidad_max + 1)  # Nueva velocidad con dificultad.
 
 
 # 3.3. Clase Meta: Representa el objetivo final del juego.
@@ -183,7 +196,7 @@ class Meta(pygame.sprite.Sprite):
 
         # Posición de la meta en el extremo superior derecho de la pantalla.
         self.rect.top = 10  # A 10 píxeles del borde superior.
-        self.rect.right = ANCHO_PANTALLA - 350  # A 10 píxeles del borde derecho.
+        self.rect.right = ANCHO_PANTALLA - 10  # A 10 píxeles del borde derecho.
 
 
 # ====================================================================================================
@@ -243,6 +256,40 @@ def mostrar_mensaje(mensaje, color):
     pygame.time.wait(2000)  # Pausa el juego por 2000 milisegundos (2 segundos).
 
 
+# 5.1.1. Función para dibujar el HUD (puntaje, vidas, nivel)
+def dibujar_hud(pantalla, puntaje, vidas, nivel):
+    texto_puntaje = fuente_normal.render(f"Puntos: {puntaje}", True, BLANCO)
+    texto_vidas = fuente_normal.render(f"Vidas: {vidas}", True, BLANCO)
+    texto_nivel = fuente_normal.render(f"Nivel: {nivel}", True, BLANCO)
+
+    pantalla.blit(texto_puntaje, (10, 10))
+    pantalla.blit(texto_vidas, (10, 45))
+    pantalla.blit(texto_nivel, (10, 80))
+
+
+# 5.1.2. Pantalla de fin (victoria/derrota) con opción de volver al menú
+def mostrar_pantalla_fin(mensaje, puntaje):
+    en_fin = True
+    while en_fin:
+        pantalla.blit(fondos_escenario[0], (0, 0))
+        titulo = fuente_grande.render(mensaje, True, BLANCO)
+        puntaje_txt = fuente_normal.render(f"Puntaje final: {puntaje}", True, BLANCO)
+        instr = fuente_normal.render("ENTER: menú  |  ESC: salir", True, BLANCO)
+        pantalla.blit(titulo, titulo.get_rect(center=(ANCHO_PANTALLA//2, ALTO_PANTALLA//2 - 40)))
+        pantalla.blit(puntaje_txt, puntaje_txt.get_rect(center=(ANCHO_PANTALLA//2, ALTO_PANTALLA//2)))
+        pantalla.blit(instr, instr.get_rect(center=(ANCHO_PANTALLA//2, ALTO_PANTALLA//2 + 50)))
+        pygame.display.flip()
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                en_fin = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_RETURN:
+                    return 'menu'
+                if event.key == pygame.K_ESCAPE:
+                    return 'salir'
+
+
 # 5.2. Función para manejar la lógica de las preguntas de opción múltiple.
 def manejar_pregunta():
     """
@@ -251,6 +298,8 @@ def manejar_pregunta():
     """
     pregunta_actual = random.choice(preguntas_tecnologia)  # Elige una pregunta al azar de la lista.
     mostrando_pregunta = True  # Bandera para controlar el bucle de la pregunta.
+    tiempo_limite_ms = 10000  # 10 segundos
+    inicio = pygame.time.get_ticks()
 
     while mostrando_pregunta:
         pantalla.fill(AZUL)  # Limpia la pantalla con un fondo negro para la pregunta.
@@ -271,7 +320,18 @@ def manejar_pregunta():
 
         pygame.display.flip()  # Actualiza la pantalla para mostrar la pregunta y las opciones.
 
-        # 5.2.3. Bucle de eventos para esperar la respuesta del usuario.
+        # 5.2.3. Temporizador visual
+        restante_ms = max(0, tiempo_limite_ms - (pygame.time.get_ticks() - inicio))
+        segundos = int(restante_ms / 1000)
+        texto_timer = fuente_normal.render(f"Tiempo: {segundos}", True, ROJO if segundos <= 3 else BLANCO)
+        pantalla.blit(texto_timer, (ANCHO_PANTALLA - 180, 10))
+        pygame.display.flip()  # Actualiza la pantalla para mostrar la pregunta y las opciones.
+
+        if restante_ms == 0:
+            mostrar_mensaje("¡Tiempo agotado!", ROJO)
+            return False
+
+        # 5.2.4. Bucle de eventos para esperar la respuesta del usuario.
         for evento in pygame.event.get():
             if evento.type == pygame.QUIT:  # Si el usuario cierra la ventana...
                 pygame.quit()  # ...cierra Pygame.
@@ -289,7 +349,7 @@ def manejar_pregunta():
                 elif evento.key == pygame.K_4:
                     opcion_elegida = 3
 
-                # 5.2.4. Verifica la respuesta
+                # 5.2.5. Verifica la respuesta
                 if opcion_elegida != -1:  # Si se presionó una tecla numérica válida...
                     if opcion_elegida == pregunta_actual["correcta"]:  # ...y es la respuesta correcta...
                         print("Respuesta correcta. ¡Continúas el juego!")
@@ -309,6 +369,14 @@ def main():
     Función principal que contiene el bucle del juego y toda la lógica de ejecución.
     """
     jugando = True  # Bandera que controla si el juego está en ejecución.
+    en_menu = True
+    en_pausa = False
+
+    # HUD y dificultad
+    puntaje = 0
+    vidas = VIDAS_INICIALES
+    nivel = 1
+    tiempo_desde_ultimo_nivel = 0  # milisegundos
 
     # 6.1. Creación de grupos de sprites
     # Grupos para organizar los objetos del juego.
@@ -342,13 +410,49 @@ def main():
 
     # 6.6. Bucle principal del juego (Game Loop)
     while jugando:
+        # Menú de inicio simple
+        while en_menu:
+            pantalla.blit(fondos_escenario[0], (0, 0))
+            titulo = fuente_grande.render("Tecno-Escape", True, BLANCO)
+            instruccion = fuente_normal.render("Presiona ENTER para iniciar", True, BLANCO)
+            pantalla.blit(titulo, titulo.get_rect(center=(ANCHO_PANTALLA//2, ALTO_PANTALLA//2 - 40)))
+            pantalla.blit(instruccion, instruccion.get_rect(center=(ANCHO_PANTALLA//2, ALTO_PANTALLA//2)))
+            pygame.display.flip()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    jugando = False
+                    en_menu = False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN:
+                    en_menu = False
         # 6.6.1. Controlar la velocidad de fotogramas
-        reloj.tick(60)  # Limita el bucle a un máximo de 60 fotogramas por segundo.
+        dt_ms = reloj.tick(60)  # Limita a 60 FPS y devuelve ms transcurridos.
+        tiempo_desde_ultimo_nivel += dt_ms
+        # Puntaje por tiempo
+        puntaje += int(PUNTAJE_POR_SEGUNDO * (dt_ms / 1000))
 
         # 6.6.2. Manejo de eventos del usuario
         for event in pygame.event.get():  # Itera a través de todos los eventos ocurridos.
             if event.type == pygame.QUIT:  # Si el usuario hace clic en el botón de cerrar ventana...
                 jugando = False  # ...cambia la bandera para salir del bucle.
+            elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                en_pausa = not en_pausa
+
+        # Pantalla de pausa
+        while en_pausa and jugando:
+            pausa_txt = fuente_grande.render("Pausa", True, BLANCO)
+            instr = fuente_normal.render("Pulsa P para continuar", True, BLANCO)
+            pantalla.blit(fondos_escenario[escenario_actual], (0, 0))
+            todos_los_sprites.draw(pantalla)
+            dibujar_hud(pantalla, puntaje, vidas, nivel)
+            pantalla.blit(pausa_txt, pausa_txt.get_rect(center=(ANCHO_PANTALLA//2, ALTO_PANTALLA//2 - 30)))
+            pantalla.blit(instr, instr.get_rect(center=(ANCHO_PANTALLA//2, ALTO_PANTALLA//2 + 20)))
+            pygame.display.flip()
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    jugando = False
+                    en_pausa = False
+                elif event.type == pygame.KEYDOWN and event.key == pygame.K_p:
+                    en_pausa = False
 
         # 6.6.3. Actualizar la posición y estado de todos los sprites
         todos_los_sprites.update()  # Llama al método update() de cada sprite en el grupo.
@@ -376,7 +480,18 @@ def main():
 
                     # Activa la lógica de la pregunta.
                     if not manejar_pregunta():  # Si la función devuelve False (respuesta INCORRECTA)...
-                        jugando = False  # ...el juego termina.
+                        vidas -= 1
+                        if vidas <= 0:
+                            mostrar_mensaje("¡Te quedaste sin vidas!", ROJO)
+                            accion = mostrar_pantalla_fin("Game Over", puntaje)
+                            if accion == 'menu':
+                                return main()
+                            else:
+                                jugando = False
+                        else:
+                            mostrar_mensaje(f"Respuesta incorrecta. Vidas: {vidas}", ROJO)
+                    else:
+                        puntaje += PUNTAJE_POR_RESPUESTA_CORRECTA
 
                 elif obstaculo_chocado.tipo == "monitor":  # Si choca con un monitor
                     # Opcional: Podrías hacer que el jugador pierda vida, o simplemente que el obstáculo desaparezca.
@@ -389,18 +504,39 @@ def main():
                     # Simplemente elimina el mouse para que no se quede estorbando, no pasa nada.
                     obstaculos.remove(obstaculo_chocado)
                     todos_los_sprites.remove(obstaculo_chocado)
+                    puntaje += PUNTAJE_POR_MOUSE
                     print("Chocaste con un mouse, sigues adelante!")
 
         # 6.6.6. Detección de colisión con la meta (condición de victoria)
         # Se pasa [meta] como una lista para que spritecollide lo trate como un grupo con un solo elemento.
         colision_meta = pygame.sprite.spritecollide(jugador, [meta], False)
         if colision_meta:  # Si el jugador colisiona con la meta.
-            mostrar_mensaje("¡Felicidades, has llegado a la meta!", VERDE)  # Muestra mensaje de victoria.
-            jugando = False  # Termina el juego.
+            puntaje += PUNTAJE_POR_NIVEL * nivel
+            mostrar_mensaje("¡Felicidades, has llegado a la meta!", VERDE)
+            accion = mostrar_pantalla_fin("¡Victoria!", puntaje)
+            if accion == 'menu':
+                # Reiniciar estado para volver al menú
+                return main()
+            else:
+                jugando = False
 
         # 6.6.7. Dibujar / Renderizar
         pantalla.blit(fondos_escenario[escenario_actual], (0, 0))  # Dibuja el fondo de pantalla actual.
         todos_los_sprites.draw(pantalla)  # Dibuja todos los sprites en la pantalla.
+        # Dibujar HUD
+        dibujar_hud(pantalla, puntaje, vidas, nivel)
+
+        # Escalado de dificultad por tiempo (cada ~20s aumenta nivel)
+        if tiempo_desde_ultimo_nivel >= 20000:
+            tiempo_desde_ultimo_nivel = 0
+            nivel += 1
+            # Aumentar ligeramente velocidades globales
+            global velocidad_min, velocidad_max
+            velocidad_min = min(velocidad_min + 1, 10)
+            velocidad_max = min(velocidad_max + 1, 14)
+            # Recalibrar velocidades actuales de obstáculos (opcional)
+            for obs in obstaculos:
+                obs.velocidad = random.randrange(velocidad_min, velocidad_max + 1)
 
         # 6.6.8. Actualizar la pantalla
         pygame.display.flip()  # Muestra todo lo que se ha dibujado en la pantalla.
